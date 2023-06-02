@@ -15,12 +15,13 @@ struct FileConfig {
 #[derive(Serialize, Deserialize)]
 pub enum Entry {
     File(FileMetadata),
-    Directory(HashMap<String, Entry>),
+    Directory(String),
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct FileMetadata {
     name: String,
+    path: String,
     size: u64,
     modified: String,
     accessed: String,
@@ -66,6 +67,7 @@ impl fmt::Debug for FileMetadata {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("FileMetadata")
             .field("name", &self.name)
+            //.field("path", &self.size)
             .field("size", &self.size)
             .field("modified", &self.modified)
             .field("accessed", &self.accessed)
@@ -77,6 +79,7 @@ impl fmt::Debug for FileMetadata {
 impl FileMetadata {
     fn new(
         name: String,
+        path: String,
         size: u64,
         modified: String,
         accessed: String,
@@ -84,6 +87,7 @@ impl FileMetadata {
     ) -> Self {
         FileMetadata {
             name,
+            path,
             size,
             modified,
             accessed,
@@ -93,7 +97,7 @@ impl FileMetadata {
 }
 
 #[tauri::command]
-pub fn locate_all(home_directory: String) -> HashMap<String, Entry> {
+pub fn locate_all_hierarchical_order(home_directory: String) -> HashMap<String, Entry> {
     println!("Locating all files within directory");
     match directory_to_hashmap(&home_directory) {
         Ok(Some(map)) => {
@@ -107,6 +111,25 @@ pub fn locate_all(home_directory: String) -> HashMap<String, Entry> {
         Err(err) => {
             eprintln!("Error reading directory: {}", err);
             HashMap::default()
+        }
+    }
+}
+
+#[tauri::command]
+pub fn locate_all_chronological_order(home_directory: String) -> Vec<FileMetadata> {
+    println!("Locating all files within directory");
+    match directory_to_vector(&home_directory) {
+        Ok(Some(vec)) => {
+            println!("Successfully discovered all MD files");
+            vec
+        }
+        Ok(None) => {
+            println!("No compatible Markdown files found.");
+            Vec::default()
+        }
+        Err(err) => {
+            eprintln!("Error reading directory: {}", err);
+            Vec::default()
         }
     }
 }
@@ -128,28 +151,34 @@ fn directory_to_hashmap(
             .file_stem()
             .map(|stem| stem.to_string_lossy().into_owned())
             .unwrap_or_else(|| entry.file_name().to_string_lossy().into_owned());
+
         if metadata.is_dir() {
             if let Some(subdirectory_map) = directory_to_hashmap(entry.path().to_str().unwrap())? {
                 if !subdirectory_map.is_empty() {
-                    directory_map.insert(name.clone(), Entry::Directory(subdirectory_map));
+                    directory_map.insert(name.clone(), Entry::Directory(entry.path().to_string_lossy().into_owned()));
                     has_md_file = true;
                 }
             }
         } else {
+            let path = entry.path().to_string_lossy().into_owned();
             let size = metadata.len();
-            let raw_accessed: DateTime<Local> = metadata.accessed().unwrap_or_else(|_| UNIX_EPOCH).into();
+            let raw_accessed: DateTime<Local> =
+                metadata.accessed().unwrap_or_else(|_| UNIX_EPOCH).into();
             let accessed = raw_accessed.to_string();
-            let raw_created: DateTime<Local> = metadata.created().unwrap_or_else(|_| UNIX_EPOCH).into();
+            let raw_created: DateTime<Local> =
+                metadata.created().unwrap_or_else(|_| UNIX_EPOCH).into();
             let created = raw_created.to_string();
-            let raw_modified: DateTime<Local> = metadata.modified().unwrap_or_else(|_| UNIX_EPOCH).into();
+            let raw_modified: DateTime<Local> =
+                metadata.modified().unwrap_or_else(|_| UNIX_EPOCH).into();
             let modified = raw_modified.to_string();
-
 
             if let Some(extension) = entry.path().extension() {
                 if extension.to_string_lossy().eq_ignore_ascii_case("md") {
                     directory_map.insert(
                         name.clone(),
-                        Entry::File(FileMetadata::new(name, size, modified, accessed, created)),
+                        Entry::File(FileMetadata::new(
+                            name, path, size, modified, accessed, created,
+                        )),
                     );
                     has_md_file = true;
                 }
@@ -159,6 +188,64 @@ fn directory_to_hashmap(
 
     if has_md_file {
         Ok(Some(directory_map))
+    } else {
+        Ok(None)
+    }
+}
+
+fn directory_to_vector(
+    home_directory: &str,
+) -> Result<Option<Vec<FileMetadata>>, Box<dyn std::error::Error>> {
+    let mut file_vector: Vec<FileMetadata> = Vec::new();
+    let entries = fs::read_dir(home_directory)?;
+
+    let mut has_md_file = false;
+
+    for entry in entries {
+        let entry = entry?;
+        let metadata = entry.metadata()?;
+        if metadata.is_dir() {
+            if let Some(subdirectory_files) = directory_to_vector(entry.path().to_str().unwrap())? {
+                if !subdirectory_files.is_empty() {
+                    file_vector.extend(subdirectory_files);
+                    has_md_file = true;
+                }
+            }      
+        } else if let Some(extension) = entry.path().extension() {
+            if extension.to_string_lossy().eq_ignore_ascii_case("md") {
+                let name = entry
+                    .path()
+                    .file_stem()
+                    .map(|stem| stem.to_string_lossy().into_owned())
+                    .unwrap_or_else(|| entry.file_name().to_string_lossy().into_owned());
+                let path = entry.path().to_string_lossy().into_owned();
+                let size = metadata.len();
+                let raw_accessed: DateTime<Local> =
+                    metadata.accessed().unwrap_or_else(|_| UNIX_EPOCH).into();
+                let accessed = raw_accessed.to_string();
+                let raw_created: DateTime<Local> =
+                    metadata.created().unwrap_or_else(|_| UNIX_EPOCH).into();
+                let created = raw_created.to_string();
+                let raw_modified: DateTime<Local> =
+                    metadata.modified().unwrap_or_else(|_| UNIX_EPOCH).into();
+                let modified = raw_modified.to_string();
+
+                file_vector.push(FileMetadata::new(
+                    name,
+                    path,
+                    size,
+                    modified,
+                    accessed,
+                    created,
+                ));
+            }
+        }
+    }
+
+    file_vector.sort_by(|a, b| a.accessed.cmp(&b.accessed));
+
+    if has_md_file {
+        Ok(Some(file_vector))
     } else {
         Ok(None)
     }
