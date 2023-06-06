@@ -140,8 +140,6 @@ fn directory_to_hashmap(
     let mut directory_map: HashMap<String, Entry> = HashMap::new();
     let entries = fs::read_dir(home_directory)?;
 
-    let mut has_md_file = false;
-
     for entry in entries {
         let entry = entry?;
         let metadata = entry.metadata()?;
@@ -156,7 +154,6 @@ fn directory_to_hashmap(
             if let Some(subdirectory_map) = directory_to_hashmap(entry.path().to_str().unwrap())? {
                 if !subdirectory_map.is_empty() {
                     directory_map.insert(name.clone(), Entry::Directory(entry.path().to_string_lossy().into_owned()));
-                    has_md_file = true;
                 }
             }
         } else {
@@ -180,13 +177,12 @@ fn directory_to_hashmap(
                             name, path, size, modified, accessed, created,
                         )),
                     );
-                    has_md_file = true;
                 }
             }
         }
     }
 
-    if has_md_file {
+    if !directory_map.is_empty() {
         Ok(Some(directory_map))
     } else {
         Ok(None)
@@ -199,8 +195,6 @@ fn directory_to_vector(
     let mut file_vector: Vec<FileMetadata> = Vec::new();
     let entries = fs::read_dir(home_directory)?;
 
-    let mut has_md_file = false;
-
     for entry in entries {
         let entry = entry?;
         let metadata = entry.metadata()?;
@@ -208,7 +202,7 @@ fn directory_to_vector(
             if let Some(subdirectory_files) = directory_to_vector(entry.path().to_str().unwrap())? {
                 if !subdirectory_files.is_empty() {
                     file_vector.extend(subdirectory_files);
-                    has_md_file = true;
+
                 }
             }      
         } else if let Some(extension) = entry.path().extension() {
@@ -242,9 +236,9 @@ fn directory_to_vector(
         }
     }
 
-    file_vector.sort_by(|a, b| a.accessed.cmp(&b.accessed));
+    file_vector.sort_by(|a, b| a.name.cmp(&b.name));
 
-    if has_md_file {
+    if !file_vector.is_empty() {
         Ok(Some(file_vector))
     } else {
         Ok(None)

@@ -29,7 +29,7 @@ export default function Directory() {
             return (
                 <div>
                     <button onClick={() => setOrderMode((orderMode + 1) % 2)}>Switch</button>
-                    <OrderChronological />
+                    <OrderChronological currentDir={config.files.home_directory}/>
                 </div>
             );
 

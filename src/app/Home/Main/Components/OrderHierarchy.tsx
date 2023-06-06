@@ -1,9 +1,7 @@
 'use client';
 
-import { useContext, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api";
-import { ConfigContext } from "./ConfigProvider";
-import { ConfigType } from "@/util/ConfigType";
 import TitlecardFile from "./TitlecardFile";
 import TitlecardDirectory from "./TitlecardDirectory";
 import TitlecardEscape from "./TitlecardEscape";
@@ -15,12 +13,8 @@ interface OrderHierarchyProps {
 }
 
 export default function OrderHierarchy({ currentDir, escapeDir, onDirectoryClick }: OrderHierarchyProps) {
-    const config = useContext(ConfigContext) as unknown as ConfigType;
-
     const [isLoaded, setLoaded] = useState(false);
     const [entries, setEntries] = useState<object | unknown>(null);
-
-    //Move ondirectoryclick to directory, pass currentdir as prop so that it saves between switches
 
     useEffect(() => {
         invoke('locate_all_hierarchical_order', { homeDirectory: currentDir })
@@ -42,21 +36,23 @@ export default function OrderHierarchy({ currentDir, escapeDir, onDirectoryClick
 
     return (
         <div>
-            {escapeDir != currentDir && <TitlecardEscape escapeDir={escapeDir} onClick={onDirectoryClick} />}
-            {
-                Object.entries(entries as object).map(([entryName, entryData]) => {
-                    if (entryData.File) {
-                        return (
-                            <TitlecardFile metadata={entryData.File} />
-                        )
-                    }
-                    else {
-                        return (
-                            <TitlecardDirectory dirName={entryName} dirPath={entryData.Directory} onClick={onDirectoryClick} />
-                        )
-                    }
-                })
-            }
+            <ul>
+                {escapeDir != currentDir && <li><TitlecardEscape escapeDir={escapeDir} onClick={onDirectoryClick} /></li>}
+                {
+                    Object.entries(entries as object).map(([entryName, entryData]) => {
+                        if (entryData.File) {
+                            return (
+                                <li><TitlecardFile key={entryData.File.path} metadata={entryData.File} /></li>
+                            )
+                        }
+                        else {
+                            return (
+                                <li><TitlecardDirectory key={entryData.directory} dirName={entryName} dirPath={entryData.Directory} onClick={onDirectoryClick} /></li>
+                            )
+                        }
+                    })
+                }
+            </ul>
         </div>
     );
 }
