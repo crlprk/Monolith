@@ -8,7 +8,8 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             files::locate_all_hierarchical_order,
             files::locate_all_chronological_order,
-            files::load_config
+            files::load_config,
+            files::load_file
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

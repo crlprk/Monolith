@@ -1,7 +1,21 @@
 use chrono::{DateTime, Local};
 use serde::{Deserialize, Serialize};
 use serde_json;
-use std::{collections::HashMap, fmt, fs, time::UNIX_EPOCH};
+use std::{
+    collections::HashMap,
+    fmt,
+    fs::{self, read_to_string},
+    time::UNIX_EPOCH,
+};
+
+#[derive(Serialize, Deserialize)]
+pub struct MonolithFile {
+    title: String,
+    description: String,
+    associated_files: Vec<FileMetadata>,
+    canvas_annotations: String,
+    markdown: String,
+}
 
 #[derive(Serialize, Deserialize)]
 pub struct Config {
@@ -95,6 +109,34 @@ impl FileMetadata {
         }
     }
 }
+impl MonolithFile {
+    pub fn new(
+        title: String,
+        description: String,
+        associated_files: Vec<FileMetadata>,
+        canvas_annotations: String,
+        markdown: String,
+    ) -> Self {
+        MonolithFile {
+            title,
+            description,
+            associated_files,
+            canvas_annotations,
+            markdown,
+        }
+    }
+}
+impl Default for MonolithFile {
+    fn default() -> Self {
+        MonolithFile {
+            title: String::new(),
+            description: String::new(),
+            associated_files: Vec::new(),
+            canvas_annotations: String::new(),
+            markdown: String::new(),
+        }
+    }
+}
 
 #[tauri::command]
 pub fn locate_all_hierarchical_order(home_directory: String) -> HashMap<String, Entry> {
@@ -153,7 +195,10 @@ fn directory_to_hashmap(
         if metadata.is_dir() {
             if let Some(subdirectory_map) = directory_to_hashmap(entry.path().to_str().unwrap())? {
                 if !subdirectory_map.is_empty() {
-                    directory_map.insert(name.clone(), Entry::Directory(entry.path().to_string_lossy().into_owned()));
+                    directory_map.insert(
+                        name.clone(),
+                        Entry::Directory(entry.path().to_string_lossy().into_owned()),
+                    );
                 }
             }
         } else {
@@ -202,9 +247,8 @@ fn directory_to_vector(
             if let Some(subdirectory_files) = directory_to_vector(entry.path().to_str().unwrap())? {
                 if !subdirectory_files.is_empty() {
                     file_vector.extend(subdirectory_files);
-
                 }
-            }      
+            }
         } else if let Some(extension) = entry.path().extension() {
             if extension.to_string_lossy().eq_ignore_ascii_case("md") {
                 let name = entry
@@ -225,18 +269,13 @@ fn directory_to_vector(
                 let modified = raw_modified.to_string();
 
                 file_vector.push(FileMetadata::new(
-                    name,
-                    path,
-                    size,
-                    modified,
-                    accessed,
-                    created,
+                    name, path, size, modified, accessed, created,
                 ));
             }
         }
     }
 
-    file_vector.sort_by(|a, b| a.name.cmp(&b.name));
+    file_vector.sort_by(|a, b| a.modified.cmp(&b.modified));
 
     if !file_vector.is_empty() {
         Ok(Some(file_vector))
@@ -263,4 +302,17 @@ fn read_config() -> Result<Config, Box<dyn std::error::Error>> {
     let json_raw = fs::read_to_string("../../config.json")?;
     let config: Config = serde_json::from_str(&json_raw)?;
     Ok(config)
+}
+
+#[tauri::command]
+pub fn load_file(path: String) -> MonolithFile {
+    match read_to_string(path) {
+        Ok(raw) => {
+            MonolithFile::default()
+        }
+        Err(err) => {
+            eprintln!("Error reading file: {}", err);
+            MonolithFile::default()
+        }
+    }
 }

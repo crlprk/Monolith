@@ -1,7 +1,6 @@
 'use client'
 
 import { WebviewWindow } from "@tauri-apps/api/window";
-import Link from "next/link";
 
 interface TitlecardFileProps {
     metadata: any;
@@ -12,13 +11,14 @@ export default function TitlecardFile({ metadata }: TitlecardFileProps) {
         let windowLabel = metadata.name as string;
         windowLabel = windowLabel.replace(/\W/g, '');
 
-        const webview = new WebviewWindow(windowLabel, {
-            url: 'Home/Main/' + metadata.name
+        const fileWindow = new WebviewWindow(windowLabel, {
+            url: `Home/Entry?path=${encodeURIComponent(metadata.path)}`
         });
-        webview.once('tauri://created', function () {
-            console.log("opened: ", metadata.name);
+        fileWindow.once('tauri://created', function () {
+            fileWindow.setTitle(metadata.name);
+            console.log("Created new window: ", metadata.name);
         });
-        webview.once('tauri://error', function (e) {
+        fileWindow.once('tauri://error', function (e) {
             console.log("failed: ", metadata.name, e);
         });
     }
