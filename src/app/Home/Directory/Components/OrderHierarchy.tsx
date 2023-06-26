@@ -42,7 +42,7 @@ export default function OrderHierarchy({ currentDir, escapeDir, onDirectoryClick
                     Object.entries(entries as object).map(([entryName, entryData]) => {
                         if (entryData.File) {
                             return (
-                                <li><TitlecardFile key={entryData.File.path} metadata={entryData.File} /></li>
+                                <li><TitlecardFile key={entryData.File.path} entryName={entryData.File.name} entryPath={entryData.File.path}/></li>
                             )
                         }
                         else {

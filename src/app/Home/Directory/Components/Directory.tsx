@@ -24,21 +24,30 @@ export default function Directory() {
         }
     }
 
+    function onSwitch() {
+        setOrderMode((orderMode + 1) % 2);
+    }
+
     switch (orderMode) {
         case 1:
             return (
                 <div>
-                    <button onClick={() => setOrderMode((orderMode + 1) % 2)}>Switch</button>
+                    <button onClick={onSwitch}>Switch</button>
                     <OrderChronological currentDir={config.files.home_directory}/>
+                </div>
+            );
+
+        case 0:
+            return (
+                <div>
+                    <button onClick={onSwitch}>Switch</button>
+                    <OrderHierarchy currentDir={currentDir} escapeDir={escapeDir} onDirectoryClick={onDirectoryClick} />
                 </div>
             );
 
         default:
             return (
-                <div>
-                    <button onClick={() => setOrderMode((orderMode + 1) % 2)}>Switch</button>
-                    <OrderHierarchy currentDir={currentDir} escapeDir={escapeDir} onDirectoryClick={onDirectoryClick} />
-                </div>
+                <p>An error has occurred</p>
             );
     }
 }

@@ -3,28 +3,29 @@
 import { WebviewWindow } from "@tauri-apps/api/window";
 
 interface TitlecardFileProps {
-    metadata: any;
+    entryName: string;
+    entryPath: string;
 }
 
-export default function TitlecardFile({ metadata }: TitlecardFileProps) {
+export default function TitlecardFile({ entryName, entryPath }: TitlecardFileProps) {
     function onFileClick() {
-        let windowLabel = metadata.name as string;
+        let windowLabel = entryName as string;
         windowLabel = windowLabel.replace(/\W/g, '');
 
         const fileWindow = new WebviewWindow(windowLabel, {
-            url: `Home/Entry?path=${encodeURIComponent(metadata.path)}`
+            url: `Home/Entry?path=${encodeURIComponent(entryPath)}`
         });
         fileWindow.once('tauri://created', function () {
-            fileWindow.setTitle(metadata.name);
-            console.log("Created new window: ", metadata.name);
+            fileWindow.setTitle(entryName);
+            console.log("Created new window: ", entryName);
         });
         fileWindow.once('tauri://error', function (e) {
-            console.log("failed: ", metadata.name, e);
+            console.log("failed: ", entryName, e);
         });
     }
     return (
         <button onClick={onFileClick}>
-            <p>{ metadata.name }</p>
+            <p>{ entryName }</p>
         </button>
     )
 }

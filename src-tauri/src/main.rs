@@ -9,7 +9,9 @@ fn main() {
             files::locate_all_hierarchical_order,
             files::locate_all_chronological_order,
             files::load_config,
-            files::load_file
+            files::load_file,
+            files::load_file_metadata,
+            files::load_file_metadata_multi
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

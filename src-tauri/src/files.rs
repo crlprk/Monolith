@@ -1,19 +1,20 @@
 use chrono::{DateTime, Local};
 use serde::{Deserialize, Serialize};
 use serde_json;
+use serde_yaml;
 use std::{
     collections::HashMap,
     fmt,
-    fs::{self, read_to_string},
-    time::UNIX_EPOCH,
+    fs::{self, read_to_string, metadata},
+    time::UNIX_EPOCH, path::Path,
 };
 
 #[derive(Serialize, Deserialize)]
 pub struct MonolithFile {
     title: String,
     description: String,
-    associated_files: Vec<FileMetadata>,
-    canvas_annotations: String,
+    associated_files: Vec<String>,
+    canvas_annotations: Vec<u8>,
     markdown: String,
 }
 
@@ -109,30 +110,27 @@ impl FileMetadata {
         }
     }
 }
-impl MonolithFile {
-    pub fn new(
-        title: String,
-        description: String,
-        associated_files: Vec<FileMetadata>,
-        canvas_annotations: String,
-        markdown: String,
-    ) -> Self {
-        MonolithFile {
-            title,
-            description,
-            associated_files,
-            canvas_annotations,
-            markdown,
+
+impl Default for FileMetadata {
+    fn default() -> Self {
+        Self {
+            name: String::default(),
+            path: String::default(),
+            size: u64::default(),
+            modified: String::default(),
+            accessed: String::default(),
+            created: String::default(),
         }
     }
 }
+
 impl Default for MonolithFile {
     fn default() -> Self {
         MonolithFile {
             title: String::new(),
             description: String::new(),
             associated_files: Vec::new(),
-            canvas_annotations: String::new(),
+            canvas_annotations: Vec::<u8>::new(),
             markdown: String::new(),
         }
     }
@@ -308,11 +306,55 @@ fn read_config() -> Result<Config, Box<dyn std::error::Error>> {
 pub fn load_file(path: String) -> MonolithFile {
     match read_to_string(path) {
         Ok(raw) => {
-            MonolithFile::default()
+            match serde_yaml::from_str(&raw) {
+                Ok(monolith_file) => {
+                    monolith_file
+                }
+                Err(err) => {
+                    eprintln!("Error deserializing file {}", err);
+                    MonolithFile::default()
+                }
+            }
         }
         Err(err) => {
             eprintln!("Error reading file: {}", err);
             MonolithFile::default()
         }
     }
+}
+
+#[tauri::command]
+pub fn load_file_metadata(path: String) -> FileMetadata {
+    match metadata(&path) {
+        Ok(raw) => {
+            let name = Path::new(&path)
+                .file_stem()
+                .map(|stem| stem.to_string_lossy().into_owned())
+                .unwrap_or_else(|| path.clone());
+            let size = raw.len();
+            let raw_accessed: DateTime<Local> =
+                raw.accessed().unwrap_or_else(|_| UNIX_EPOCH).into();
+            let accessed = raw_accessed.to_string();
+            let raw_created: DateTime<Local> =
+                raw.created().unwrap_or_else(|_| UNIX_EPOCH).into();
+            let created = raw_created.to_string();
+            let raw_modified: DateTime<Local> =
+                raw.modified().unwrap_or_else(|_| UNIX_EPOCH).into();
+            let modified = raw_modified.to_string();
+            FileMetadata::new(name, path, size, modified, accessed, created)
+        }
+        Err(err) => {
+            eprintln!("Error reading file metadata: {}", err);
+            FileMetadata::default()
+        }
+    }
+}
+
+#[tauri::command]
+pub fn load_file_metadata_multi(files: Vec<String>) -> Vec<FileMetadata> {
+    let mut metadata_vec: Vec<FileMetadata> = Vec::new();
+    for file in files {
+        metadata_vec.push(load_file_metadata(file));
+    }
+    metadata_vec
 }
