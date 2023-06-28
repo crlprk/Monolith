@@ -3,11 +3,13 @@
 import { WebviewWindow } from "@tauri-apps/api/window";
 
 interface TitlecardFileProps {
-    entryName: string;
     entryPath: string;
 }
 
-export default function TitlecardFile({ entryName, entryPath }: TitlecardFileProps) {
+export default function TitlecardFile({ entryPath }: TitlecardFileProps) {
+    let matches = entryPath.match(/[^\\/]+(?=\.[^.]+$)/);
+    let entryName = ""
+    if (matches) { entryName = matches[0] }
     function onFileClick() {
         let windowLabel = entryName as string;
         windowLabel = windowLabel.replace(/\W/g, '');

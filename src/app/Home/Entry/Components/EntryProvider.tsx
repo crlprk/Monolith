@@ -16,7 +16,9 @@ export default function EntryProvider() {
         
         invoke('load_file', { path: filePath })
             .then((response) => {
+                console.log("Successfully loaded entry");
                 setEntryData(response);
+                console.log(response);
             })
             .catch((error) => {
                 console.error('Error reading file: ', error);

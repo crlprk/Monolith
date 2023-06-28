@@ -34,7 +34,7 @@ export default function OrderChronological({ currentDir }: OrderChronologicalPro
         <div>
             <ul>
                 {Array.isArray(entries) && entries.map(entryData => (
-                    <li><TitlecardFile key={entryData.path} entryName={entryData.name} entryPath={entryData.path} /></li>
+                    <li key={entryData.path}><TitlecardFile entryPath={entryData.path} /></li>
                 ))}
             </ul>
         </div>

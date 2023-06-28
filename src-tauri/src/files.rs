@@ -1,12 +1,13 @@
 use chrono::{DateTime, Local};
 use serde::{Deserialize, Serialize};
 use serde_json;
-use serde_yaml;
+use gray_matter::Matter;
+use gray_matter::engine::YAML;
+use tauri::command;
 use std::{
     collections::HashMap,
-    fmt,
     fs::{self, read_to_string, metadata},
-    time::UNIX_EPOCH, path::Path,
+    time::UNIX_EPOCH,
 };
 
 #[derive(Serialize, Deserialize)]
@@ -16,6 +17,14 @@ pub struct MonolithFile {
     associated_files: Vec<String>,
     canvas_annotations: Vec<u8>,
     markdown: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct MonolithData {
+    title: String,
+    description: String,
+    associated_files: Vec<String>,
+    canvas_annotations: Vec<u8>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -35,7 +44,6 @@ pub enum Entry {
 
 #[derive(Serialize, Deserialize)]
 pub struct FileMetadata {
-    name: String,
     path: String,
     size: u64,
     modified: String,
@@ -53,47 +61,8 @@ impl Default for Config {
     }
 }
 
-impl std::fmt::Debug for Config {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Config")
-            .field("files", &self.files)
-            .finish()
-    }
-}
-
-impl std::fmt::Debug for FileConfig {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("FileConfig")
-            .field("homeDirectory", &self.home_directory)
-            .finish()
-    }
-}
-
-impl fmt::Debug for Entry {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Entry::File(metadata) => f.debug_tuple("Entry::File").field(metadata).finish(),
-            Entry::Directory(map) => f.debug_tuple("Entry::Directory").field(map).finish(),
-        }
-    }
-}
-
-impl fmt::Debug for FileMetadata {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("FileMetadata")
-            .field("name", &self.name)
-            //.field("path", &self.size)
-            .field("size", &self.size)
-            .field("modified", &self.modified)
-            .field("accessed", &self.accessed)
-            .field("created", &self.created)
-            .finish()
-    }
-}
-
 impl FileMetadata {
     fn new(
-        name: String,
         path: String,
         size: u64,
         modified: String,
@@ -101,7 +70,6 @@ impl FileMetadata {
         created: String,
     ) -> Self {
         FileMetadata {
-            name,
             path,
             size,
             modified,
@@ -114,7 +82,6 @@ impl FileMetadata {
 impl Default for FileMetadata {
     fn default() -> Self {
         Self {
-            name: String::default(),
             path: String::default(),
             size: u64::default(),
             modified: String::default(),
@@ -124,19 +91,37 @@ impl Default for FileMetadata {
     }
 }
 
+impl MonolithFile {
+    fn new(
+        title: String,
+        description: String,
+        associated_files: Vec::<String>,
+        canvas_annotations: Vec::<u8>,
+        markdown: String,
+    ) -> Self {
+        MonolithFile {
+            title,
+            description,
+            associated_files,
+            canvas_annotations,
+            markdown,
+        }
+    }
+}
+
 impl Default for MonolithFile {
     fn default() -> Self {
         MonolithFile {
             title: String::new(),
             description: String::new(),
-            associated_files: Vec::new(),
+            associated_files: Vec::<String>::new(),
             canvas_annotations: Vec::<u8>::new(),
             markdown: String::new(),
         }
     }
 }
 
-#[tauri::command]
+#[command]
 pub fn locate_all_hierarchical_order(home_directory: String) -> HashMap<String, Entry> {
     println!("Locating all files within directory");
     match directory_to_hashmap(&home_directory) {
@@ -155,7 +140,7 @@ pub fn locate_all_hierarchical_order(home_directory: String) -> HashMap<String, 
     }
 }
 
-#[tauri::command]
+#[command]
 pub fn locate_all_chronological_order(home_directory: String) -> Vec<FileMetadata> {
     println!("Locating all files within directory");
     match directory_to_vector(&home_directory) {
@@ -183,24 +168,17 @@ fn directory_to_hashmap(
     for entry in entries {
         let entry = entry?;
         let metadata = entry.metadata()?;
-
-        let name = entry
-            .path()
-            .file_stem()
-            .map(|stem| stem.to_string_lossy().into_owned())
-            .unwrap_or_else(|| entry.file_name().to_string_lossy().into_owned());
-
+        let path = entry.path().to_string_lossy().into_owned();
         if metadata.is_dir() {
             if let Some(subdirectory_map) = directory_to_hashmap(entry.path().to_str().unwrap())? {
                 if !subdirectory_map.is_empty() {
                     directory_map.insert(
-                        name.clone(),
-                        Entry::Directory(entry.path().to_string_lossy().into_owned()),
+                        path.clone(),
+                        Entry::Directory(path),
                     );
                 }
             }
         } else {
-            let path = entry.path().to_string_lossy().into_owned();
             let size = metadata.len();
             let raw_accessed: DateTime<Local> =
                 metadata.accessed().unwrap_or_else(|_| UNIX_EPOCH).into();
@@ -215,9 +193,9 @@ fn directory_to_hashmap(
             if let Some(extension) = entry.path().extension() {
                 if extension.to_string_lossy().eq_ignore_ascii_case("md") {
                     directory_map.insert(
-                        name.clone(),
+                        path.clone(),
                         Entry::File(FileMetadata::new(
-                            name, path, size, modified, accessed, created,
+                            path, size, modified, accessed, created,
                         )),
                     );
                 }
@@ -249,11 +227,6 @@ fn directory_to_vector(
             }
         } else if let Some(extension) = entry.path().extension() {
             if extension.to_string_lossy().eq_ignore_ascii_case("md") {
-                let name = entry
-                    .path()
-                    .file_stem()
-                    .map(|stem| stem.to_string_lossy().into_owned())
-                    .unwrap_or_else(|| entry.file_name().to_string_lossy().into_owned());
                 let path = entry.path().to_string_lossy().into_owned();
                 let size = metadata.len();
                 let raw_accessed: DateTime<Local> =
@@ -267,7 +240,7 @@ fn directory_to_vector(
                 let modified = raw_modified.to_string();
 
                 file_vector.push(FileMetadata::new(
-                    name, path, size, modified, accessed, created,
+                    path, size, modified, accessed, created,
                 ));
             }
         }
@@ -282,7 +255,7 @@ fn directory_to_vector(
     }
 }
 
-#[tauri::command]
+#[command]
 pub fn load_config() -> Config {
     match read_config() {
         Ok(config) => {
@@ -302,18 +275,15 @@ fn read_config() -> Result<Config, Box<dyn std::error::Error>> {
     Ok(config)
 }
 
-#[tauri::command]
+#[command]
 pub fn load_file(path: String) -> MonolithFile {
     match read_to_string(path) {
         Ok(raw) => {
-            match serde_yaml::from_str(&raw) {
-                Ok(monolith_file) => {
-                    monolith_file
-                }
-                Err(err) => {
-                    eprintln!("Error deserializing file {}", err);
-                    MonolithFile::default()
-                }
+            let matter = Matter::<YAML>::new();
+
+            match matter.parse_with_struct::<MonolithData>(&raw) {
+                Some(monolith_file) => MonolithFile::new(monolith_file.data.title, monolith_file.data.description, monolith_file.data.associated_files, monolith_file.data.canvas_annotations, monolith_file.content),
+                None => MonolithFile::default()
             }
         }
         Err(err) => {
@@ -323,14 +293,10 @@ pub fn load_file(path: String) -> MonolithFile {
     }
 }
 
-#[tauri::command]
+#[command]
 pub fn load_file_metadata(path: String) -> FileMetadata {
     match metadata(&path) {
         Ok(raw) => {
-            let name = Path::new(&path)
-                .file_stem()
-                .map(|stem| stem.to_string_lossy().into_owned())
-                .unwrap_or_else(|| path.clone());
             let size = raw.len();
             let raw_accessed: DateTime<Local> =
                 raw.accessed().unwrap_or_else(|_| UNIX_EPOCH).into();
@@ -341,7 +307,7 @@ pub fn load_file_metadata(path: String) -> FileMetadata {
             let raw_modified: DateTime<Local> =
                 raw.modified().unwrap_or_else(|_| UNIX_EPOCH).into();
             let modified = raw_modified.to_string();
-            FileMetadata::new(name, path, size, modified, accessed, created)
+            FileMetadata::new(path, size, modified, accessed, created)
         }
         Err(err) => {
             eprintln!("Error reading file metadata: {}", err);
@@ -350,7 +316,7 @@ pub fn load_file_metadata(path: String) -> FileMetadata {
     }
 }
 
-#[tauri::command]
+#[command]
 pub fn load_file_metadata_multi(files: Vec<String>) -> Vec<FileMetadata> {
     let mut metadata_vec: Vec<FileMetadata> = Vec::new();
     for file in files {
