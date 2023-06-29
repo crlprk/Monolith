@@ -1,7 +1,7 @@
 
-export default function OpenEntryButton() {
+export default function OpenEntryButton({ onClick }: any) {
     return (
-        <button>
+        <button onClick={onClick}>
             <p>Open Entry</p>
         </button>
     )
