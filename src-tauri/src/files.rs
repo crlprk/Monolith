@@ -1,12 +1,13 @@
 use chrono::{DateTime, Local};
 use serde::{Deserialize, Serialize};
 use serde_json;
+use serde_yaml;
 use gray_matter::Matter;
 use gray_matter::engine::YAML;
-use tauri::command;
+use tauri::{command};
 use std::{
     collections::HashMap,
-    fs::{self, read_to_string, metadata},
+    fs::{self, read_to_string, metadata, write},
     time::UNIX_EPOCH,
 };
 
@@ -117,6 +118,22 @@ impl Default for MonolithFile {
             associated_files: Vec::<String>::new(),
             canvas_annotations: Vec::<u8>::new(),
             markdown: String::new(),
+        }
+    }
+}
+
+impl MonolithData {
+    fn new(
+        title: String,
+        description: String,
+        associated_files: Vec::<String>,
+        canvas_annotations: Vec::<u8>,
+    ) -> Self {
+        MonolithData {
+            title,
+            description,
+            associated_files,
+            canvas_annotations,
         }
     }
 }
@@ -317,10 +334,17 @@ pub fn load_file_metadata(path: String) -> FileMetadata {
 }
 
 #[command]
-pub fn load_file_metadata_multi(files: Vec<String>) -> Vec<FileMetadata> {
-    let mut metadata_vec: Vec<FileMetadata> = Vec::new();
-    for file in files {
-        metadata_vec.push(load_file_metadata(file));
+pub fn save_file(path: String, entry_data: MonolithFile) -> Result<String, String>{
+    let md = MonolithData::new(entry_data.title, entry_data.description, entry_data.associated_files, entry_data.canvas_annotations);
+    let md_str = serde_yaml::to_string(&md).unwrap();
+    let format = format!("---\n{}---\n{}", md_str, entry_data.markdown);
+    println!("{}", &format);
+    match write(path, format) {
+        Ok(()) => {
+            Ok(format!("Successfully saved data to disk"))
+        }
+        Err(err) => {
+            Err(format!("Error saving data: {}", err))
+        }
     }
-    metadata_vec
 }

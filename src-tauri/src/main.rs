@@ -11,7 +11,7 @@ fn main() {
             files::load_config,
             files::load_file,
             files::load_file_metadata,
-            files::load_file_metadata_multi
+            files::save_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

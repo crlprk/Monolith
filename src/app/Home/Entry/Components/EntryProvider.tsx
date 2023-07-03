@@ -13,12 +13,10 @@ export default function EntryProvider() {
     const filePath = searchParams.get('path');
     
     useEffect(() => {
-        
         invoke('load_file', { path: filePath })
             .then((response) => {
                 console.log("Successfully loaded entry");
                 setEntryData(response);
-                console.log(response);
             })
             .catch((error) => {
                 console.error('Error reading file: ', error);
@@ -29,7 +27,7 @@ export default function EntryProvider() {
         return <div>Loading</div>
     }
     return (
-        <EntryContext.Provider value={{entryData, filePath}}>
+        <EntryContext.Provider value={{entryData, filePath, setEntryData}}>
             <EntryContainer />
         </EntryContext.Provider>
     )
