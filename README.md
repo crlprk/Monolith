@@ -10,15 +10,15 @@ This software is in extremely early prototype stages. Please feel free to refere
     - [ ] Custom animation for all app transitions
     - [ ] Multiple color theming options
 - [ ] Functionality
-    - [ ] Markdown based text editor
+    - [x] Markdown based text editor
         - [ ] Syntax highlighting
         - [ ] Custom syntax to support macros
     - [ ] SVG based HTML Canvas stored as YAML on top of Markdown for freeform annotation and drawing
-    - [ ] Interdocument linking through file embedded YAML
+    - [x] Interdocument linking through file embedded YAML
     - [ ] Simplified export to markdown, pdf, and plain text
 - [ ] Learning objectives
     - [ ] Rust
-        - [ ] Tauri - Webview based application stack
+        - [x] Tauri - Webview based application stack
         - [ ] Memory management and ownership system
     - [ ] Nextjs
         - [ ] TailwindCSS
