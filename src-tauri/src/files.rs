@@ -338,7 +338,6 @@ pub fn save_file(path: String, entry_data: MonolithFile) -> Result<String, Strin
     let md = MonolithData::new(entry_data.title, entry_data.description, entry_data.associated_files, entry_data.canvas_annotations);
     let md_str = serde_yaml::to_string(&md).unwrap();
     let format = format!("---\n{}---\n{}", md_str, entry_data.markdown);
-    println!("{}", &format);
     match write(path, format) {
         Ok(()) => {
             Ok(format!("Successfully saved data to disk"))

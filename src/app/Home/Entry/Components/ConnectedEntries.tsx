@@ -12,7 +12,7 @@ export default function ConnectedEntries(){
 
     useEffect(() => {
         setAssociatedFiles(entryData.associated_files);
-    }, []);
+    }, [entryData]);
 
     if (!associatedFiles) {
         return <div>Loading</div>

@@ -13,6 +13,7 @@ import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import rehypeReact from "rehype-react/lib";
 import ExitEntryButton from "./ExitEntryButton";
+import { invoke } from "@tauri-apps/api";
 
 export default function EntryEditing({onExitClick}: any) {
     const { entryData, filePath, setEntryData } = useContext(EntryContext);
@@ -25,6 +26,15 @@ export default function EntryEditing({onExitClick}: any) {
     function mainKeyDownHandler(e: React.KeyboardEvent<HTMLDivElement>) {
         if (e.ctrlKey && e.code === "Tab") {
             setEditMode((editMode + 1) % 2);
+        }
+        if (e.ctrlKey && e.code === "KeyS") {
+            invoke("save_file", { path: filePath, entryData: entryData})
+                .then((response) => {
+                    console.log(response);
+                })
+                .catch((error) => {
+                    console.error(error);
+                });
         }
     }
 
@@ -48,8 +58,9 @@ export default function EntryEditing({onExitClick}: any) {
         let tempData = entryData;
             tempData.title = currentTitle;
             tempData.description = currentDescription;
+            tempData.markdown = currentMarkdown;
             setEntryData(tempData);
-    }, [currentTitle, currentDescription])
+    }, [currentTitle, currentDescription, currentMarkdown])
 
     switch (editMode) {
         case 0:      
@@ -72,9 +83,9 @@ export default function EntryEditing({onExitClick}: any) {
             return (
                 <div tabIndex={0} onKeyDown={mainKeyDownHandler}>
                     <label htmlFor="title"></label>
-                    <input type="text" name="title" id="title" value={currentTitle} onChange={e => setCurrentTitle(e.target.value)}/>
+                    <input type="text" name="title" id="title" value={currentTitle} onChange={e => setCurrentTitle(e.target.value)} autoComplete="off"/>
                     <label htmlFor="description"></label>
-                    <input type="text" name="description" id="description" value={currentDescription} onChange={e => setCurrentDescription(e.target.value)} />
+                    <input type="text" name="description" id="description" value={currentDescription} onChange={e => setCurrentDescription(e.target.value)} autoComplete="off"/>
                     <label htmlFor="content"></label>
                     <textarea name="markdown" id="content" cols={30} rows={10} value={currentMarkdown} onChange={e => setCurrentMarkdown(e.target.value)} autoComplete="off"></textarea>
                     <ExitEntryButton onClick={onExitClick}/>
